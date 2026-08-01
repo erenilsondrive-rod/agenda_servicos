@@ -57,6 +57,7 @@
     }
     button:hover { opacity: 0.9; }
     .btn-secondary { background: #6b7280; }
+    .btn-danger { background: #ef4444; }
     .list-item {
       padding: 10px;
       border-bottom: 1px solid var(--border);
@@ -71,6 +72,8 @@
       justify-content: space-between;
       align-items: center;
       margin-bottom: 10px;
+      flex-wrap: wrap;
+      gap: 10px;
     }
     .badge {
       padding: 4px 8px;
@@ -79,18 +82,88 @@
     }
     .online { background: #dcfce7; color: #166534; }
     .offline { background: #fee2e2; color: #991b1b; }
+    
+    /* Modais e Telas de Login */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5);
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    .modal-content {
+      background: white;
+      padding: 24px;
+      border-radius: 12px;
+      max-width: 400px;
+      width: 90%;
+    }
+    .link-btn {
+      background: none;
+      color: var(--primary);
+      border: none;
+      padding: 0;
+      margin-top: 8px;
+      font-size: 0.85rem;
+      text-decoration: underline;
+      cursor: pointer;
+      text-align: left;
+      width: auto;
+    }
   </style>
 </head>
 <body>
 
-<div class="container">
-  <!-- Barra de Status e Sincronização -->
+<!-- TELA DE LOGIN -->
+<div id="loginScreen" class="modal" style="display: flex;">
+  <div class="modal-content">
+    <h2>🔒 Acesso Restrito</h2>
+    <form onsubmit="handleLogin(event)">
+      <input type="text" id="loginUser" placeholder="Usuário" required>
+      <input type="password" id="loginPass" placeholder="Senha" required>
+      <button type="submit">Entrar</button>
+    </form>
+    <button class="link-btn" onclick="showForgotPassword()">Esqueci a senha</button>
+  </div>
+</div>
+
+<!-- MODAL ESQUECI A SENHA -->
+<div id="forgotModal" class="modal">
+  <div class="modal-content">
+    <h2>🔑 Recuperar Senha</h2>
+    <p><small id="securityQuestionText">Pergunta de Segurança: Qual é o nome da sua primeira escola/mascote?</small></p>
+    <input type="text" id="securityAnswer" placeholder="Sua resposta de segurança">
+    <input type="password" id="newForgotPass" placeholder="Nova Senha">
+    <button onclick="handleRecovery()">Redefinir Senha</button>
+    <button onclick="closeModal('forgotModal')" class="btn-secondary">Cancelar</button>
+  </div>
+</div>
+
+<!-- MODAL ALTERAR SENHA -->
+<div id="changePassModal" class="modal">
+  <div class="modal-content">
+    <h2>⚙️ Alterar Senha</h2>
+    <input type="password" id="currentPass" placeholder="Senha Atual">
+    <input type="password" id="newPass" placeholder="Nova Senha">
+    <input type="password" id="confirmNewPass" placeholder="Confirme a Nova Senha">
+    <button onclick="handleChangePassword()">Salvar Nova Senha</button>
+    <button onclick="closeModal('changePassModal')" class="btn-secondary">Cancelar</button>
+  </div>
+</div>
+
+<!-- CONTEÚDO DA AGENDA -->
+<div id="appContainer" class="container" style="display: none;">
+  <!-- Barra de Status, Segurança e Sincronização -->
   <div class="card full-width">
     <div class="status-bar">
-      <span>Status da Conexão: <span id="netStatus" class="badge">Verificando...</span></span>
+      <span>Status: <span id="netStatus" class="badge">Verificando...</span></span>
       <div>
-        <button onclick="exportData()" class="btn-secondary" style="width: auto; padding: 6px 12px;">Exportar Dados</button>
-        <button onclick="document.getElementById('importFile').click()" class="btn-secondary" style="width: auto; padding: 6px 12px;">Importar Backup</button>
+        <button onclick="openModal('changePassModal')" class="btn-secondary" style="width: auto; padding: 6px 12px;">Alterar Senha</button>
+        <button onclick="exportData()" class="btn-secondary" style="width: auto; padding: 6px 12px;">Exportar</button>
+        <button onclick="document.getElementById('importFile').click()" class="btn-secondary" style="width: auto; padding: 6px 12px;">Importar</button>
+        <button onclick="logout()" class="btn-danger" style="width: auto; padding: 6px 12px;">Sair</button>
         <input type="file" id="importFile" style="display:none" onchange="importData(event)">
       </div>
     </div>
@@ -118,17 +191,139 @@
 </div>
 
 <script>
-  // Inicialização de dados
-  let appData = JSON.parse(localStorage.getItem('app_agenda_data')) || { notes: '', events: [] };
+  // CONFIGURAÇÕES DE SEGURANÇA E DADOS
+  const DEFAULT_USER = 'erenilson';
+  const DEFAULT_PASS_HASH = '1e37bc67a7a2a4b8bfd53b92eaef95454fa58d60c2aaef9eefbe0ef5a886a117'; // SHA-256 de '34651279'
+  const DEFAULT_ANSWER_HASH = '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918'; // SHA-256 de 'admin'
 
+  let userConfig = JSON.parse(localStorage.getItem('app_user_config')) || {
+    username: DEFAULT_USER,
+    passHash: DEFAULT_PASS_HASH,
+    securityQuestion: 'Qual é a sua palavra de recuperação de segurança padrão?',
+    securityAnswerHash: DEFAULT_ANSWER_HASH
+  };
+
+  let appData = JSON.parse(localStorage.getItem('app_agenda_data')) || { notes: '', events: [] };
+  let inactivityTimer;
+
+  // FUNÇÕES DE CRIPTOGRAFIA (SHA-256 via Web Crypto API)
+  async function hashText(text) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(text);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  // GERENCIAMENTO DE TELA E MODAIS
+  function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+  function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+  // AUTENTICAÇÃO
+  async function handleLogin(e) {
+    e.preventDefault();
+    const userIn = document.getElementById('loginUser').value;
+    const passIn = document.getElementById('loginPass').value;
+    const inputHash = await hashText(passIn);
+
+    if (userIn === userConfig.username && inputHash === userConfig.passHash) {
+      document.getElementById('loginScreen').style.display = 'none';
+      document.getElementById('appContainer').style.display = 'grid';
+      initApp();
+    } else {
+      alert('Usuário ou senha incorretos.');
+    }
+  }
+
+  function logout() {
+    document.getElementById('appContainer').style.display = 'none';
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('loginPass').value = '';
+    clearTimeout(inactivityTimer);
+  }
+
+  // RECURSO ADICIONAL DE SEGURANÇA: Bloqueio Automático por Inatividade (5 minutos)
+  function resetInactivityTimer() {
+    clearTimeout(inactivityTimer);
+    inactivityTimer = setTimeout(() => {
+      if (document.getElementById('appContainer').style.display !== 'none') {
+        alert('Sessão encerrada por inatividade por motivos de segurança.');
+        logout();
+      }
+    }, 5 * 60 * 1000);
+  }
+
+  ['mousemove', 'keydown', 'touchstart', 'scroll'].forEach(evt => {
+    window.addEventListener(evt, resetInactivityTimer);
+  });
+
+  // ALTERAR SENHA COM VERIFICAÇÃO
+  async function handleChangePassword() {
+    const currentPass = document.getElementById('currentPass').value;
+    const newPass = document.getElementById('newPass').value;
+    const confirmNewPass = document.getElementById('confirmNewPass').value;
+
+    const currentHash = await hashText(currentPass);
+
+    if (currentHash !== userConfig.passHash) {
+      alert('A senha atual está incorreta.');
+      return;
+    }
+    if (newPass.length < 6) {
+      alert('A nova senha deve ter no mínimo 6 caracteres.');
+      return;
+    }
+    if (newPass !== confirmNewPass) {
+      alert('A nova senha e a confirmação não coincidem.');
+      return;
+    }
+
+    userConfig.passHash = await hashText(newPass);
+    localStorage.setItem('app_user_config', JSON.stringify(userConfig));
+    alert('Senha alterada com sucesso!');
+    closeModal('changePassModal');
+    document.getElementById('currentPass').value = '';
+    document.getElementById('newPass').value = '';
+    document.getElementById('confirmNewPass').value = '';
+  }
+
+  // ESQUECI A SENHA
+  function showForgotPassword() {
+    document.getElementById('securityQuestionText').textContent = userConfig.securityQuestion;
+    openModal('forgotModal');
+  }
+
+  async function handleRecovery() {
+    const answer = document.getElementById('securityAnswer').value;
+    const newPass = document.getElementById('newForgotPass').value;
+
+    const answerHash = await hashText(answer.toLowerCase().trim());
+
+    if (answerHash !== userConfig.securityAnswerHash) {
+      alert('Resposta de segurança incorreta. (Dica padrão: admin)');
+      return;
+    }
+    if (newPass.length < 6) {
+      alert('A nova senha deve ter no mínimo 6 caracteres.');
+      return;
+    }
+
+    userConfig.passHash = await hashText(newPass);
+    localStorage.setItem('app_user_config', JSON.stringify(userConfig));
+    alert('Senha redefinida com sucesso! Você já pode fazer login com a nova senha.');
+    closeModal('forgotModal');
+  }
+
+  // INICIALIZAÇÃO DA AGENDA
   const notesEl = document.getElementById('quickNotes');
   const eventsListEl = document.getElementById('eventsList');
 
-  // Carregar dados salvos
-  notesEl.value = appData.notes || '';
-  renderEvents();
+  function initApp() {
+    notesEl.value = appData.notes || '';
+    renderEvents();
+    resetInactivityTimer();
+  }
 
-  // Salvar Bloco de Notas automaticamente ao digitar
   notesEl.addEventListener('input', () => {
     appData.notes = notesEl.value;
     saveData();
@@ -165,7 +360,7 @@
 
   function renderEvents() {
     if (appData.events.length === 0) {
-      eventsListEl.innerHTML = '<p style="color: #6b7280;">Nenhum compromisso agendado.</p>';
+      eventsListEl.innerHTML = '<p style="color: #6b7280;">Nenhum compromisso cadastrado.</p>';
       return;
     }
 
@@ -183,7 +378,6 @@
     }).join('');
   }
 
-  // Monitorar estado On-line / Off-line
   function updateNetworkStatus() {
     const statusEl = document.getElementById('netStatus');
     if (navigator.onLine) {
@@ -199,7 +393,6 @@
   window.addEventListener('offline', updateNetworkStatus);
   updateNetworkStatus();
 
-  // Exportar e Importar para sincronização manual entre aparelhos
   function exportData() {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appData));
     const downloadAnchor = document.createElement('a');
