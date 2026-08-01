@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Minha Agenda & Bloco de Notas</title>
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --card: #ffffff;
+      --primary: #2563eb;
+      --text: #1f2937;
+      --border: #e5e7eb;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 16px;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+    }
+    @media (min-width: 768px) {
+      .container { grid-template-columns: 1fr 1fr; }
+      .full-width { grid-column: span 2; }
+    }
+    .card {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      border: 1px solid var(--border);
+    }
+    h2 { margin-top: 0; font-size: 1.25rem; color: var(--primary); }
+    input, textarea, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 8px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      box-sizing: border-box;
+      font-size: 0.95rem;
+    }
+    button {
+      background: var(--primary);
+      color: white;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 12px;
+    }
+    button:hover { opacity: 0.9; }
+    .btn-secondary { background: #6b7280; }
+    .list-item {
+      padding: 10px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .list-item:last-child { border-bottom: none; }
+    .status-bar {
+      font-size: 0.85rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .badge {
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-weight: bold;
+    }
+    .online { background: #dcfce7; color: #166534; }
+    .offline { background: #fee2e2; color: #991b1b; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Barra de Status e Sincronização -->
+  <div class="card full-width">
+    <div class="status-bar">
+      <span>Status da Conexão: <span id="netStatus" class="badge">Verificando...</span></span>
+      <div>
+        <button onclick="exportData()" class="btn-secondary" style="width: auto; padding: 6px 12px;">Exportar Dados</button>
+        <button onclick="document.getElementById('importFile').click()" class="btn-secondary" style="width: auto; padding: 6px 12px;">Importar Backup</button>
+        <input type="file" id="importFile" style="display:none" onchange="importData(event)">
+      </div>
+    </div>
+  </div>
+
+  <!-- Bloco de Notas Rápidas -->
+  <div class="card">
+    <h2>📝 Bloco de Notas Rápido</h2>
+    <textarea id="quickNotes" rows="8" placeholder="Digite suas anotações do dia a dia aqui... (Salvo automaticamente)"></textarea>
+  </div>
+
+  <!-- Formulário de Compromissos -->
+  <div class="card">
+    <h2>📅 Novo Compromisso</h2>
+    <input type="text" id="eventTitle" placeholder="Título do compromisso">
+    <input type="datetime-local" id="eventDate">
+    <button onclick="addEvent()">Salvar na Agenda</button>
+  </div>
+
+  <!-- Lista de Compromissos -->
+  <div class="card full-width">
+    <h2>📌 Compromissos Agendados</h2>
+    <div id="eventsList">Nenhum compromisso cadastrado.</div>
+  </div>
+</div>
+
+<script>
+  // Inicialização de dados
+  let appData = JSON.parse(localStorage.getItem('app_agenda_data')) || { notes: '', events: [] };
+
+  const notesEl = document.getElementById('quickNotes');
+  const eventsListEl = document.getElementById('eventsList');
+
+  // Carregar dados salvos
+  notesEl.value = appData.notes || '';
+  renderEvents();
+
+  // Salvar Bloco de Notas automaticamente ao digitar
+  notesEl.addEventListener('input', () => {
+    appData.notes = notesEl.value;
+    saveData();
+  });
+
+  function saveData() {
+    localStorage.setItem('app_agenda_data', JSON.stringify(appData));
+  }
+
+  function addEvent() {
+    const title = document.getElementById('eventTitle').value;
+    const date = document.getElementById('eventDate').value;
+
+    if (!title || !date) {
+      alert('Por favor, preencha o título e a data.');
+      return;
+    }
+
+    appData.events.push({ id: Date.now(), title, date });
+    appData.events.sort((a, b) => new Date(a.date) - new Date(b.date));
+    
+    saveData();
+    renderEvents();
+
+    document.getElementById('eventTitle').value = '';
+    document.getElementById('eventDate').value = '';
+  }
+
+  function deleteEvent(id) {
+    appData.events = appData.events.filter(e => e.id !== id);
+    saveData();
+    renderEvents();
+  }
+
+  function renderEvents() {
+    if (appData.events.length === 0) {
+      eventsListEl.innerHTML = '<p style="color: #6b7280;">Nenhum compromisso agendado.</p>';
+      return;
+    }
+
+    eventsListEl.innerHTML = appData.events.map(e => {
+      const formattedDate = new Date(e.date).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+      return `
+        <div class="list-item">
+          <div>
+            <strong>${e.title}</strong><br>
+            <small style="color: #6b7280;">${formattedDate}</small>
+          </div>
+          <button onclick="deleteEvent(${e.id})" style="width: auto; background: #ef4444; padding: 4px 8px;">Excluir</button>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // Monitorar estado On-line / Off-line
+  function updateNetworkStatus() {
+    const statusEl = document.getElementById('netStatus');
+    if (navigator.onLine) {
+      statusEl.textContent = 'On-line';
+      statusEl.className = 'badge online';
+    } else {
+      statusEl.textContent = 'Off-line (Modo Local)';
+      statusEl.className = 'badge offline';
+    }
+  }
+
+  window.addEventListener('online', updateNetworkStatus);
+  window.addEventListener('offline', updateNetworkStatus);
+  updateNetworkStatus();
+
+  // Exportar e Importar para sincronização manual entre aparelhos
+  function exportData() {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appData));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `agenda_backup_${new Date().toISOString().slice(0,10)}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  }
+
+  function importData(event) {
+    const fileReader = new FileReader();
+    fileReader.onload = function(e) {
+      try {
+        appData = JSON.parse(e.target.result);
+        saveData();
+        notesEl.value = appData.notes || '';
+        renderEvents();
+        alert('Dados importados com sucesso!');
+      } catch (err) {
+        alert('Erro ao importar arquivo JSON inválido.');
+      }
+    };
+    fileReader.readAsText(event.target.files[0]);
+  }
+</script>
+
+</body>
+</html>
