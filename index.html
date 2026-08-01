@@ -1,253 +1,879 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-bs-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Minha Agenda & Bloco de Notas</title>
+  <title>Agenda & Bloco de Notas Pro</title>
+  
+  <!-- Bootstrap 5 CSS & Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+
   <style>
     :root {
-      --bg: #f4f6f8;
-      --card: #ffffff;
-      --primary: #2563eb;
-      --text: #1f2937;
-      --border: #e5e7eb;
+      --transition-speed: 0.3s;
     }
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      margin: 0;
-      padding: 16px;
+      transition: background-color var(--transition-speed) ease, color var(--transition-speed) ease;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
     }
-    .container {
-      max-width: 900px;
-      margin: 0 auto;
+
+    .sidebar {
+      min-width: 260px;
+      max-width: 260px;
+      transition: all var(--transition-speed) ease;
+    }
+
+    .sidebar.collapsed {
+      margin-left: -260px;
+    }
+
+    .main-content {
+      flex: 1;
+      transition: all var(--transition-speed) ease;
+    }
+
+    /* GRID FIXO DE 7 COLUNAS PARA MÊS E SEMANA */
+    .calendar-grid-month, .calendar-grid-week {
       display: grid;
-      grid-template-columns: 1fr;
-      gap: 20px;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
     }
-    @media (min-width: 768px) {
-      .container { grid-template-columns: 1fr 1fr; }
-      .full-width { grid-column: span 2; }
+
+    .calendar-grid-day {
+      display: block;
     }
-    .card {
-      background: var(--card);
-      border-radius: 12px;
-      padding: 20px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-      border: 1px solid var(--border);
+
+    .calendar-grid-year {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
     }
-    h2 { margin-top: 0; font-size: 1.25rem; color: var(--primary); }
-    input, textarea, button {
+
+    /* DIMENSÕES DAS CÉLULAS DO CALENDÁRIO */
+    .calendar-day {
+      height: 90px;
+      max-height: 90px;
+      border: 1px solid var(--bs-border-color);
+      transition: background-color 0.2s ease, border-color 0.2s ease;
+      cursor: pointer;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
       width: 100%;
-      padding: 10px;
-      margin-top: 8px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      box-sizing: border-box;
-      font-size: 0.95rem;
+      position: relative;
     }
-    button {
-      background: var(--primary);
-      color: white;
-      border: none;
-      font-weight: bold;
+
+    .calendar-day:hover {
+      background-color: rgba(var(--bs-primary-rgb), 0.08);
+    }
+
+    /* DIA SELECIONADO */
+    .calendar-day.selected-day {
+      border: 2px solid var(--bs-primary) !important;
+      background-color: rgba(var(--bs-primary-rgb), 0.15) !important;
+    }
+
+    .calendar-day.bg-today {
+      border: 2px dashed var(--bs-primary) !important;
+    }
+
+    /* CÉLULA EXPANDIDA NA VISUALIZAÇÃO DIA */
+    .calendar-day-expanded {
+      min-height: 120px;
+      height: auto !important;
+      max-height: none !important;
+    }
+
+    .calendar-day-events {
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .event-badge {
+      font-size: 0.75rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    .animate-fade {
+      animation: fadeIn 0.4s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .login-backdrop {
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    }
+
+    .cursor-pointer {
       cursor: pointer;
-      margin-top: 12px;
-    }
-    button:hover { opacity: 0.9; }
-    .btn-secondary { background: #6b7280; }
-    .btn-danger { background: #ef4444; }
-    .list-item {
-      padding: 10px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .list-item:last-child { border-bottom: none; }
-    .status-bar {
-      font-size: 0.85rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 10px;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-    .badge {
-      padding: 4px 8px;
-      border-radius: 4px;
-      font-weight: bold;
-    }
-    .online { background: #dcfce7; color: #166534; }
-    .offline { background: #fee2e2; color: #991b1b; }
-    
-    /* Modais e Telas de Login */
-    .modal {
-      display: none;
-      position: fixed;
-      top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.5);
-      justify-content: center;
-      align-items: center;
-      z-index: 1000;
-    }
-    .modal-content {
-      background: white;
-      padding: 24px;
-      border-radius: 12px;
-      max-width: 400px;
-      width: 90%;
-    }
-    .link-btn {
-      background: none;
-      color: var(--primary);
-      border: none;
-      padding: 0;
-      margin-top: 8px;
-      font-size: 0.85rem;
-      text-decoration: underline;
-      cursor: pointer;
-      text-align: left;
-      width: auto;
     }
   </style>
 </head>
-<body>
+<body class="bg-body-tertiary">
 
-<!-- TELA DE LOGIN -->
-<div id="loginScreen" class="modal" style="display: flex;">
-  <div class="modal-content">
-    <h2>🔒 Acesso Restrito</h2>
-    <form onsubmit="handleLogin(event)">
-      <input type="text" id="loginUser" placeholder="Usuário" required>
-      <input type="password" id="loginPass" placeholder="Senha" required>
-      <button type="submit">Entrar</button>
-    </form>
-    <button class="link-btn" onclick="showForgotPassword()">Esqueci a senha</button>
+<!-- ================= TELA DE LOGIN & CADASTRO ================= -->
+<div id="loginScreen" class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center login-backdrop z-3 animate-fade">
+  <div class="card shadow-lg border-0 rounded-4 p-4 text-center" style="max-width: 420px; width: 92%;">
+    <div class="mb-3">
+      <i class="bi bi-shield-lock-fill text-primary display-4"></i>
+      <h4 class="fw-bold mb-0 mt-2">Agenda & Bloco de Notas</h4>
+      <p class="text-muted small">Acesso Restrito ao Sistema</p>
+    </div>
+
+    <!-- NAVEGAÇÃO ENTRE LOGIN E CADASTRO -->
+    <ul class="nav nav-pills nav-justified mb-3" id="authTabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active fw-semibold" id="tab-login" data-bs-toggle="pill" data-bs-target="#pane-login" type="button" role="tab">Entrar</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link fw-semibold" id="tab-register" data-bs-toggle="pill" data-bs-target="#pane-register" type="button" role="tab">Cadastrar</button>
+      </li>
+    </ul>
+
+    <div class="tab-content text-start" id="authTabsContent">
+      
+      <!-- ABA 1: LOGIN -->
+      <div class="tab-pane fade show active" id="pane-login" role="tabpanel">
+        <form id="loginForm" onsubmit="handleLogin(event)">
+          <div class="form-floating mb-3">
+            <input type="text" class="form-control" id="loginUser" placeholder="Usuário" required>
+            <label for="loginUser"><i class="bi bi-person me-1"></i>Usuário</label>
+          </div>
+          
+          <div class="input-group mb-3">
+            <div class="form-floating flex-grow-1">
+              <input type="password" class="form-control" id="loginPass" placeholder="Senha" style="border-top-right-radius: 0; border-bottom-right-radius: 0;" required>
+              <label for="loginPass"><i class="bi bi-key me-1"></i>Senha</label>
+            </div>
+            <button class="btn btn-outline-secondary" type="button" onclick="togglePassVisibility('loginPass', 'eyeLoginIcon')">
+              <i class="bi bi-eye" id="eyeLoginIcon"></i>
+            </button>
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold rounded-3 shadow-sm mb-2">
+            <i class="bi bi-box-arrow-in-right me-1"></i> Entrar no Sistema
+          </button>
+        </form>
+
+        <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
+          <button type="button" class="btn btn-link btn-sm text-decoration-none text-muted p-0" data-bs-toggle="modal" data-bs-target="#forgotModal">
+            Esqueci minha senha
+          </button>
+        </div>
+      </div>
+
+      <!-- ABA 2: CADASTRO -->
+      <div class="tab-pane fade" id="pane-register" role="tabpanel">
+        <form id="registerForm" onsubmit="handleRegister(event)">
+          <div class="form-floating mb-2">
+            <input type="text" class="form-control" id="regUser" placeholder="Usuário" required>
+            <label for="regUser"><i class="bi bi-person-plus me-1"></i>Novo Usuário</label>
+          </div>
+
+          <div class="input-group mb-2">
+            <div class="form-floating flex-grow-1">
+              <input type="password" class="form-control" id="regPass" placeholder="Senha" style="border-top-right-radius: 0; border-bottom-right-radius: 0;" required>
+              <label for="regPass"><i class="bi bi-key me-1"></i>Senha (mín. 4 dig.)</label>
+            </div>
+            <button class="btn btn-outline-secondary" type="button" onclick="togglePassVisibility('regPass', 'eyeRegIcon')">
+              <i class="bi bi-eye" id="eyeRegIcon"></i>
+            </button>
+          </div>
+
+          <!-- CONFIRMAÇÃO DE SENHA -->
+          <div class="input-group mb-2">
+            <div class="form-floating flex-grow-1">
+              <input type="password" class="form-control" id="regPassConfirm" placeholder="Confirme a Senha" style="border-top-right-radius: 0; border-bottom-right-radius: 0;" required>
+              <label for="regPassConfirm"><i class="bi bi-key-fill me-1"></i>Confirmar Senha</label>
+            </div>
+            <button class="btn btn-outline-secondary" type="button" onclick="togglePassVisibility('regPassConfirm', 'eyeRegConfirmIcon')">
+              <i class="bi bi-eye" id="eyeRegConfirmIcon"></i>
+            </button>
+          </div>
+
+          <div class="form-floating mb-2">
+            <input type="text" class="form-control" id="regQuestion" placeholder="Pergunta de Segurança" value="Qual é a sua palavra de segurança padrão?" required>
+            <label for="regQuestion"><i class="bi bi-question-circle me-1"></i>Pergunta de Segurança</label>
+          </div>
+
+          <div class="form-floating mb-3">
+            <input type="text" class="form-control" id="regAnswer" placeholder="Resposta" required>
+            <label for="regAnswer"><i class="bi bi-shield-check me-1"></i>Resposta de Segurança</label>
+          </div>
+
+          <button type="submit" class="btn btn-success w-100 py-2 fw-semibold rounded-3 shadow-sm">
+            <i class="bi bi-check-circle me-1"></i> Criar Conta
+          </button>
+        </form>
+      </div>
+
+    </div>
   </div>
 </div>
 
-<!-- MODAL ESQUECI A SENHA -->
-<div id="forgotModal" class="modal">
-  <div class="modal-content">
-    <h2>🔑 Recuperar Senha</h2>
-    <p><small id="securityQuestionText">Pergunta de Segurança: Qual é o nome da sua primeira escola/mascote?</small></p>
-    <input type="text" id="securityAnswer" placeholder="Sua resposta de segurança">
-    <input type="password" id="newForgotPass" placeholder="Nova Senha">
-    <button onclick="handleRecovery()">Redefinir Senha</button>
-    <button onclick="closeModal('forgotModal')" class="btn-secondary">Cancelar</button>
-  </div>
-</div>
+<!-- ================= APLICAÇÃO PRINCIPAL ================= -->
+<div id="appContainer" class="d-none flex-grow-1 d-flex flex-column animate-fade">
+  
+  <!-- BARRA DE NAVEGAÇÃO -->
+  <nav class="navbar navbar-expand bg-body border-bottom sticky-top px-3 shadow-sm">
+    <div class="container-fluid p-0">
+      <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-outline-secondary btn-sm" id="sidebarToggle" onclick="toggleSidebar()" title="Recolher Menu">
+          <i class="bi bi-list fs-5"></i>
+        </button>
+        <span class="navbar-brand mb-0 h1 fw-bold text-primary d-none d-sm-inline">
+          <i class="bi bi-calendar-event me-2"></i>Agenda & Notas
+        </span>
+      </div>
 
-<!-- MODAL ALTERAR SENHA -->
-<div id="changePassModal" class="modal">
-  <div class="modal-content">
-    <h2>⚙️ Alterar Senha</h2>
-    <input type="password" id="currentPass" placeholder="Senha Atual">
-    <input type="password" id="newPass" placeholder="Nova Senha">
-    <input type="password" id="confirmNewPass" placeholder="Confirme a Nova Senha">
-    <button onclick="handleChangePassword()">Salvar Nova Senha</button>
-    <button onclick="closeModal('changePassModal')" class="btn-secondary">Cancelar</button>
-  </div>
-</div>
+      <div class="d-flex align-items-center gap-2">
+        <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-2">
+          <i class="bi bi-person-circle me-1"></i><span id="activeUserDisplay">erenilson</span>
+        </span>
 
-<!-- CONTEÚDO DA AGENDA -->
-<div id="appContainer" class="container" style="display: none;">
-  <!-- Barra de Status, Segurança e Sincronização -->
-  <div class="card full-width">
-    <div class="status-bar">
-      <span>Status: <span id="netStatus" class="badge">Verificando...</span></span>
+        <span id="netStatus" class="badge rounded-pill bg-secondary align-self-center">Verificando...</span>
+        
+        <button class="btn btn-outline-warning btn-sm rounded-circle" id="themeToggleBtn" onclick="toggleTheme()" title="Alternar Modo Dia/Noite">
+          <i class="bi bi-sun-fill" id="themeIcon"></i>
+        </button>
+
+        <button class="btn btn-outline-danger btn-sm" onclick="logout()" title="Sair">
+          <i class="bi bi-power"></i> <span class="d-none d-md-inline">Sair</span>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- CORPO PRINCIPAL DA APLICAÇÃO -->
+  <div class="d-flex flex-grow-1 overflow-hidden">
+    
+    <!-- MENU LATERAL RECOLHÍVEL -->
+    <aside id="sidebar" class="sidebar bg-body border-end p-3 d-flex flex-column gap-3">
       <div>
-        <button onclick="openModal('changePassModal')" class="btn-secondary" style="width: auto; padding: 6px 12px;">Alterar Senha</button>
-        <button onclick="exportData()" class="btn-secondary" style="width: auto; padding: 6px 12px;">Exportar</button>
-        <button onclick="document.getElementById('importFile').click()" class="btn-secondary" style="width: auto; padding: 6px 12px;">Importar</button>
-        <button onclick="logout()" class="btn-danger" style="width: auto; padding: 6px 12px;">Sair</button>
-        <input type="file" id="importFile" style="display:none" onchange="importData(event)">
+        <h6 class="text-uppercase text-muted fw-bold small">Ações Rápidas</h6>
+        <button class="btn btn-primary w-100 text-start mb-2" onclick="handleNewEventClick()">
+          <i class="bi bi-plus-circle me-2"></i>Novo Evento
+        </button>
+        <button class="btn btn-outline-secondary w-100 text-start mb-2" data-bs-toggle="modal" data-bs-target="#settingsModal">
+          <i class="bi bi-gear me-2"></i>Ajustes & Senha
+        </button>
+      </div>
+
+      <hr class="my-1">
+
+      <div>
+        <h6 class="text-uppercase text-muted fw-bold small">Backup do Sistema</h6>
+        <div class="d-grid gap-2">
+          <button onclick="exportFullSystemBackup()" class="btn btn-outline-primary btn-sm text-start">
+            <i class="bi bi-download me-2"></i>Exportar Backup Geral
+          </button>
+          <button onclick="document.getElementById('importFile').click()" class="btn btn-outline-primary btn-sm text-start">
+            <i class="bi bi-upload me-2"></i>Restaurar Backup Geral
+          </button>
+          <input type="file" id="importFile" class="d-none" accept=".json" onchange="importFullSystemBackup(event)">
+        </div>
+      </div>
+
+      <hr class="my-1">
+
+      <div class="flex-grow-1 overflow-auto">
+        <h6 class="text-uppercase text-muted fw-bold small mb-2">Feriados do Ano</h6>
+        <ul id="holidaysListSidebar" class="list-group list-group-flush small"></ul>
+      </div>
+    </aside>
+
+    <!-- ÁREA DE CONTEÚDO -->
+    <main class="main-content p-3 p-md-4 overflow-auto bg-body-tertiary">
+      <div class="container-fluid max-width-xl p-0">
+        
+        <div class="row g-4 mb-4">
+          <!-- CALENDÁRIO -->
+          <div class="col-lg-8">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+              <div class="card-header bg-body border-0 pt-3 px-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <h5 class="fw-bold mb-0 text-primary" id="calendarMonthYear">Mês Ano</h5>
+                
+                <!-- BOTÕES DE MODO DE VISUALIZAÇÃO (ANO, MÊS, SEMANA, DIA) -->
+                <div class="btn-group btn-group-sm" role="group" id="calendarViewButtons">
+                  <button class="btn btn-outline-primary" data-view="year" onclick="setCalendarViewMode('year')">Ano</button>
+                  <button class="btn btn-outline-primary active" data-view="month" onclick="setCalendarViewMode('month')">Mês</button>
+                  <button class="btn btn-outline-primary" data-view="week" onclick="setCalendarViewMode('week')">Semana</button>
+                  <button class="btn btn-outline-primary" data-view="day" onclick="setCalendarViewMode('day')">Dia</button>
+                </div>
+
+                <div class="btn-group btn-group-sm">
+                  <button class="btn btn-outline-secondary" onclick="changeCalendarDate(-1)"><i class="bi bi-chevron-left"></i></button>
+                  <button class="btn btn-outline-secondary" onclick="currentDateViewAction()">Hoje</button>
+                  <button class="btn btn-outline-secondary" onclick="changeCalendarDate(1)"><i class="bi bi-chevron-right"></i></button>
+                </div>
+              </div>
+
+              <div class="card-body p-2">
+                <div id="calendarHeaderDays" class="row g-0 text-center fw-semibold text-muted small mb-2">
+                  <div class="col">Dom</div><div class="col">Seg</div><div class="col">Ter</div>
+                  <div class="col">Qua</div><div class="col">Qui</div><div class="col">Sex</div><div class="col">Sáb</div>
+                </div>
+                <div id="calendarGrid" class="calendar-grid-month"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- BLOCO DE NOTAS EM CASCATA (<details> e <summary>) -->
+          <div class="col-lg-4">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+              <div class="card-header bg-body border-0 pt-3 px-3 d-flex align-items-center justify-content-between">
+                <h5 class="fw-bold mb-0 text-primary"><i class="bi bi-journal-text me-2"></i>Notas Rápidas</h5>
+                <button class="btn btn-sm btn-primary rounded-3" data-bs-toggle="modal" data-bs-target="#newNoteModal">
+                  <i class="bi bi-plus-lg me-1"></i>Nova Nota
+                </button>
+              </div>
+              <div class="card-body p-3 overflow-auto" style="max-height: 480px;">
+                <div id="notesContainer"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- LISTA DE EVENTOS E COMPROMISSOS -->
+        <div class="row g-4">
+          <div class="col-12">
+            <div class="card border-0 shadow-sm rounded-4">
+              <div class="card-header bg-body border-0 pt-3 px-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <h5 class="fw-bold mb-0 text-primary"><i class="bi bi-list-stars me-2"></i>Próximos Compromissos & Alarmes</h5>
+                
+                <div class="d-flex align-items-center gap-2">
+                  <!-- BOTÃO ÚNICO DE ALTERNÂNCIA DE VISUALIZAÇÃO -->
+                  <button class="btn btn-sm btn-outline-primary rounded-3" onclick="toggleEventsView()">
+                    <i class="bi bi-list-task me-1" id="viewModeIcon"></i>
+                    <span id="viewModeLabel">Lista Resumida</span>
+                  </button>
+
+                  <button class="btn btn-sm btn-primary rounded-3" onclick="handleNewEventClick()">
+                    <i class="bi bi-plus-lg me-1"></i>Adicionar Evento
+                  </button>
+                </div>
+              </div>
+              <div class="card-body p-3">
+                <div id="eventsList" class="row g-3"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+
+  </div>
+</div>
+
+<!-- ================= MODAIS ================= -->
+
+<!-- MODAL: VISUALIZAR DETALHES DO DIA (POPUP COM OPÇÃO VOLTAR AO CLICAR FORA) -->
+<div class="modal fade" id="dayDetailsModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg rounded-4">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-bold text-primary" id="dayDetailsTitle"><i class="bi bi-calendar-event me-2"></i>Eventos do Dia</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="dayDetailsBody">
+        <!-- Conteúdo preenchido via JavaScript -->
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button type="button" class="btn btn-secondary rounded-3" data-bs-dismiss="modal"><i class="bi bi-arrow-left me-1"></i> Voltar</button>
       </div>
     </div>
   </div>
+</div>
 
-  <!-- Bloco de Notas Rápidas -->
-  <div class="card">
-    <h2>📝 Bloco de Notas Rápido</h2>
-    <textarea id="quickNotes" rows="8" placeholder="Digite suas anotações do dia a dia aqui... (Salvo automaticamente)"></textarea>
-  </div>
+<!-- MODAL: RECUPERAÇÃO DE SENHA -->
+<div class="modal fade" id="forgotModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg rounded-4">
+      <div class="modal-header border-0">
+        <h5 class="modal-title fw-bold text-primary"><i class="bi bi-key me-2"></i>Recuperar Senha</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Informe seu Usuário</label>
+          <div class="input-group">
+            <input type="text" class="form-control" id="forgotUsername" placeholder="Digite o usuário">
+            <button class="btn btn-outline-primary" type="button" onclick="loadSecurityQuestion()">Buscar</button>
+          </div>
+        </div>
 
-  <!-- Formulário de Compromissos -->
-  <div class="card">
-    <h2>📅 Novo Compromisso</h2>
-    <input type="text" id="eventTitle" placeholder="Título do compromisso">
-    <input type="datetime-local" id="eventDate">
-    <button onclick="addEvent()">Salvar na Agenda</button>
-  </div>
+        <div id="forgotStep2" class="d-none">
+          <div class="alert alert-warning small py-2 mb-3">
+            <strong>Pergunta de Segurança:</strong><br>
+            <span id="forgotQuestionLabel">...</span>
+          </div>
 
-  <!-- Lista de Compromissos -->
-  <div class="card full-width">
-    <h2>📌 Compromissos Agendados</h2>
-    <div id="eventsList">Nenhum compromisso cadastrado.</div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Resposta de Segurança</label>
+            <input type="text" class="form-control" id="forgotAnswer" placeholder="Digite a resposta correta">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Nova Senha</label>
+            <div class="input-group">
+              <input type="password" class="form-control" id="forgotNewPass" placeholder="Mínimo 4 caracteres">
+              <button class="btn btn-outline-secondary" type="button" onclick="togglePassVisibility('forgotNewPass', 'eyeForgotIcon')">
+                <i class="bi bi-eye" id="eyeForgotIcon"></i>
+              </button>
+            </div>
+          </div>
+
+          <button type="button" class="btn btn-primary w-100 fw-semibold" onclick="handleResetPassword()">Redefinir Senha</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
+<!-- MODAL: NOVO EVENTO -->
+<div class="modal fade" id="newEventModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg rounded-4">
+      <div class="modal-header border-0">
+        <h5 class="modal-title fw-bold text-primary"><i class="bi bi-calendar-plus me-2"></i>Agendar Compromisso</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="eventForm" onsubmit="saveEvent(event)">
+          <div class="mb-3">
+            <label for="eventTitle" class="form-label fw-semibold">Título do Compromisso</label>
+            <input type="text" class="form-control" id="eventTitle" placeholder="Ex: Reunião de Alinhamento" required>
+          </div>
+          
+          <div class="row g-2 mb-3">
+            <!-- DATA E HORA COM BOTÃO CONFIRMAR -->
+            <div class="col-md-7">
+              <label for="eventDate" class="form-label fw-semibold">Data e Hora</label>
+              <div class="input-group">
+                <input type="datetime-local" class="form-control" id="eventDate" required>
+                <button class="btn btn-outline-success" type="button" onclick="confirmDateSelection()">
+                  <i class="bi bi-check-lg"></i> Confirmar
+                </button>
+              </div>
+              <small id="dateConfirmFeedback" class="text-success d-none"><i class="bi bi-check-circle-fill me-1"></i>Data confirmada!</small>
+            </div>
+
+            <!-- CATEGORIA COM SUPORTE A NOVAS CATEGORIAS -->
+            <div class="col-md-5">
+              <label for="eventCategory" class="form-label fw-semibold">Categoria</label>
+              <select class="form-select" id="eventCategory" onchange="checkNewCategoryOption(this)">
+                <!-- Opções renderizadas via JavaScript -->
+              </select>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="eventAlarm" checked>
+              <label class="form-check-label fw-semibold" for="eventAlarm">Ativar Alarme/Lembrete</label>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label for="eventDesc" class="form-label fw-semibold">Descrição / Observação</label>
+            <textarea class="form-control" id="eventDesc" rows="2" placeholder="Detalhes adicionais..."></textarea>
+          </div>
+          <div class="d-flex justify-content-end gap-2">
+            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-primary fw-semibold">Salvar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: NOVA CATEGORIA -->
+<div class="modal fade" id="newCategoryModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg rounded-4">
+      <div class="modal-header border-0">
+        <h5 class="modal-title fw-bold text-primary"><i class="bi bi-tag-fill me-2"></i>Nova Categoria</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="catForm" onsubmit="saveNewCategory(event)">
+          <div class="mb-3">
+            <label for="catName" class="form-label fw-semibold">Nome da Categoria</label>
+            <input type="text" class="form-control" id="catName" placeholder="Ex: Financeiro" required>
+          </div>
+          <div class="mb-3">
+            <label for="catColor" class="form-label fw-semibold">Cor do Selo</label>
+            <select class="form-select" id="catColor">
+              <option value="primary" class="text-primary fw-bold">Azul (Primary)</option>
+              <option value="success" class="text-success fw-bold">Verde (Success)</option>
+              <option value="warning" class="text-warning fw-bold">Amarelo (Warning)</option>
+              <option value="danger" class="text-danger fw-bold">Vermelho (Danger)</option>
+              <option value="info" class="text-info fw-bold">Ciano (Info)</option>
+              <option value="secondary" class="text-secondary fw-bold">Cinza (Secondary)</option>
+              <option value="dark" class="text-dark fw-bold">Preto (Dark)</option>
+            </select>
+          </div>
+          <div class="d-flex justify-content-end gap-2">
+            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-primary fw-semibold">Salvar Categoria</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: NOVA NOTA EM CASCATA -->
+<div class="modal fade" id="newNoteModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg rounded-4">
+      <div class="modal-header border-0">
+        <h5 class="modal-title fw-bold text-primary"><i class="bi bi-journal-plus me-2"></i>Nova Nota</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="noteForm" onsubmit="saveNewNote(event)">
+          <div class="mb-3">
+            <label for="noteTitle" class="form-label fw-semibold">Título</label>
+            <input type="text" class="form-control" id="noteTitle" placeholder="Ex: Requisitos do Projeto" required>
+          </div>
+          <div class="mb-3">
+            <label for="noteSubject" class="form-label fw-semibold">Assunto</label>
+            <input type="text" class="form-control" id="noteSubject" placeholder="Ex: Desenvolvimento Web" required>
+          </div>
+          <div class="mb-3">
+            <label for="noteContent" class="form-label fw-semibold">Conteúdo / Detalhes</label>
+            <textarea class="form-control" id="noteContent" rows="4" placeholder="Escreva os detalhes da nota..."></textarea>
+          </div>
+          <div class="d-flex justify-content-end gap-2">
+            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-primary fw-semibold">Salvar Nota</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: CONFIGURAÇÕES DE SENHA -->
+<div class="modal fade" id="settingsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg rounded-4">
+      <div class="modal-header border-0">
+        <h5 class="modal-title fw-bold text-primary"><i class="bi bi-gear me-2"></i>Ajustes de Segurança</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <h6 class="fw-bold mb-3">Alterar Senha do Usuário Atual</h6>
+        <div class="mb-3">
+          <label class="form-label small">Senha Atual</label>
+          <input type="password" class="form-control" id="currentPass">
+        </div>
+        <div class="mb-3">
+          <label class="form-label small">Nova Senha</label>
+          <div class="input-group">
+            <input type="password" class="form-control" id="newPass">
+            <button class="btn btn-outline-secondary" type="button" onclick="togglePassVisibility('newPass', 'eyeChangeIcon')">
+              <i class="bi bi-eye" id="eyeChangeIcon"></i>
+            </button>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small">Confirme a Nova Senha</label>
+          <input type="password" class="form-control" id="confirmNewPass">
+        </div>
+        <button class="btn btn-primary w-100 fw-semibold mb-3" onclick="handleChangePassword()">Salvar Nova Senha</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- BOOTSTRAP JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
 <script>
-  // CONFIGURAÇÕES DE SEGURANÇA E DADOS
-  const DEFAULT_USER = 'erenilson';
-  const DEFAULT_PASS_HASH = '1e37bc67a7a2a4b8bfd53b92eaef95454fa58d60c2aaef9eefbe0ef5a886a117'; // SHA-256 de '34651279'
-  const DEFAULT_ANSWER_HASH = '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918'; // SHA-256 de 'admin'
-
-  let userConfig = JSON.parse(localStorage.getItem('app_user_config')) || {
-    username: DEFAULT_USER,
-    passHash: DEFAULT_PASS_HASH,
-    securityQuestion: 'Qual é a sua palavra de recuperação de segurança padrão?',
-    securityAnswerHash: DEFAULT_ANSWER_HASH
-  };
-
-  let appData = JSON.parse(localStorage.getItem('app_agenda_data')) || { notes: '', events: [] };
-  let inactivityTimer;
-
-  // FUNÇÕES DE CRIPTOGRAFIA (SHA-256 via Web Crypto API)
-  async function hashText(text) {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(text);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  /* ================= ALGORITMO SHA-256 SÍNCRONO & SEGURO ================= */
+  function sha256(ascii) {
+    function rightRotate(value, amount) { return (value >>> amount) | (value << (32 - amount)); }
+    var mathPow = Math.pow, maxWord = mathPow(2, 32), lengthProperty = 'length', i, j, result = '', words = [];
+    var asciiLength = ascii[lengthProperty], hash = sha256.h = sha256.h || [], k = sha256.k = sha256.k || [], primeCounter = k[lengthProperty];
+    var isComposite = {};
+    for (var candidate = 2; primeCounter < 64; candidate++) {
+      if (!isComposite[candidate]) {
+        for (i = 0; i < 300; i += candidate) isComposite[i] = true;
+        hash[primeCounter] = (mathPow(candidate, .5) * maxWord) | 0;
+        k[primeCounter++] = (mathPow(candidate, 1 / 3) * maxWord) | 0;
+      }
+    }
+    ascii += '\x80';
+    while (ascii[lengthProperty] % 64 - 56) ascii += '\x00';
+    for (i = 0; i < ascii[lengthProperty]; i++) {
+      j = ascii.charCodeAt(i);
+      if (j >> 8) return;
+      words[i >> 2] |= j << ((3 - i % 4) * 8);
+    }
+    words[words[lengthProperty]] = ((asciiLength * 8) / maxWord) | 0;
+    words[words[lengthProperty]] = (asciiLength * 8);
+    for (j = 0; j < words[lengthProperty];) {
+      var w = words.slice(j, j += 16), oldHash = hash;
+      hash = hash.slice(0, 8);
+      for (i = 0; i < 64; i++) {
+        var w15 = w[i - 15], w2 = w[i - 2];
+        var a = hash[0], e = hash[4];
+        var temp1 = hash[7] + (rightRotate(e, 6) ^ rightRotate(e, 11) ^ rightRotate(e, 25)) + ((e & hash[5]) ^ ((~e) & hash[6])) + k[i] + (w[i] = (i < 16) ? w[i] : (w[i - 16] + (rightRotate(w15, 7) ^ rightRotate(w15, 18) ^ (w15 >>> 3)) + w[i - 7] + (rightRotate(w2, 17) ^ rightRotate(w2, 19) ^ (w2 >>> 10))) | 0);
+        var temp2 = (rightRotate(a, 2) ^ rightRotate(a, 13) ^ rightRotate(a, 22)) + ((a & hash[1]) ^ (a & hash[2]) ^ (hash[1] & hash[2]));
+        hash = [(temp1 + temp2) | 0].concat(hash);
+        hash[4] = (hash[4] + temp1) | 0;
+      }
+      for (i = 0; i < 8; i++) hash[i] = (hash[i] + oldHash[i]) | 0;
+    }
+    for (i = 0; i < 8; i++) {
+      for (j = 3; j >= 0; j--) {
+        var b = (hash[i] >> (j * 8)) & 255;
+        result += (b < 16 ? 0 : '') + b.toString(16);
+      }
+    }
+    return result;
   }
 
-  // GERENCIAMENTO DE TELA E MODAIS
-  function openModal(id) { document.getElementById(id).style.display = 'flex'; }
-  function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+  /* ================= ESTADO E BANCO DE DADOS LOCAL ================= */
+  const DEFAULT_USER = 'erenilson';
+  const DEFAULT_PASS_HASH = sha256('34651279');
+  const DEFAULT_ANSWER_HASH = sha256('admin');
 
-  // AUTENTICAÇÃO
-  async function handleLogin(e) {
-    e.preventDefault();
-    const userIn = document.getElementById('loginUser').value;
-    const passIn = document.getElementById('loginPass').value;
-    const inputHash = await hashText(passIn);
+  function getUsersDB() {
+    let users = JSON.parse(localStorage.getItem('app_users_db'));
+    if (!users || !Array.isArray(users) || users.length === 0) {
+      users = [{
+        username: DEFAULT_USER,
+        passHash: DEFAULT_PASS_HASH,
+        securityQuestion: 'Qual é a sua palavra de segurança padrão?',
+        securityAnswerHash: DEFAULT_ANSWER_HASH
+      }];
+      localStorage.setItem('app_users_db', JSON.stringify(users));
+    }
+    return users;
+  }
 
-    if (userIn === userConfig.username && inputHash === userConfig.passHash) {
-      document.getElementById('loginScreen').style.display = 'none';
-      document.getElementById('appContainer').style.display = 'grid';
-      initApp();
+  function saveUsersDB(users) {
+    localStorage.setItem('app_users_db', JSON.stringify(users));
+  }
+
+  let activeUser = null;
+  let appData = { notesList: [], events: [], categories: [], theme: 'light', eventsViewMode: 'cards' };
+  let inactivityTimer;
+  let currentDateView = new Date();
+  let calendarViewMode = 'month'; // 'year', 'month', 'week', 'day'
+  let selectedDateStr = null; // Guarda o dia atualmente selecionado no calendário
+  let alarmInterval = null;
+
+  /* ================= FUNÇÕES DE UTILIDADE ================= */
+  function togglePassVisibility(inputId, iconId) {
+    const input = document.getElementById(inputId);
+    const icon = document.getElementById(iconId);
+    if (input.type === 'password') {
+      input.type = 'text';
+      icon.classList.replace('bi-eye', 'bi-eye-slash');
     } else {
-      alert('Usuário ou senha incorretos.');
+      input.type = 'password';
+      icon.classList.replace('bi-eye-slash', 'bi-eye');
     }
   }
 
-  function logout() {
-    document.getElementById('appContainer').style.display = 'none';
-    document.getElementById('loginScreen').style.display = 'flex';
-    document.getElementById('loginPass').value = '';
-    clearTimeout(inactivityTimer);
+  /* ================= AUTENTICAÇÃO E CADASTRO ================= */
+  function handleLogin(e) {
+    e.preventDefault();
+    const usernameInput = document.getElementById('loginUser').value.trim().toLowerCase();
+    const passwordInput = document.getElementById('loginPass').value.trim();
+
+    const users = getUsersDB();
+    const userFound = users.find(u => u.username.toLowerCase() === usernameInput);
+
+    if (userFound && sha256(passwordInput) === userFound.passHash) {
+      activeUser = userFound.username;
+      document.getElementById('activeUserDisplay').textContent = activeUser;
+      
+      appData = JSON.parse(localStorage.getItem(`app_agenda_data_${activeUser}`)) || { notesList: [], events: [], categories: [], theme: 'light', eventsViewMode: 'cards' };
+      
+      if (typeof appData.notes === 'string') {
+        if (appData.notes.trim() !== '') {
+          appData.notesList = [{ id: Date.now(), title: 'Nota Inicial', subject: 'Geral', content: appData.notes }];
+        } else {
+          appData.notesList = [];
+        }
+        delete appData.notes;
+      }
+      if (!appData.notesList) appData.notesList = [];
+
+      if (!appData.categories || appData.categories.length === 0) {
+        appData.categories = [
+          { id: 'primary', name: 'Trabalho', color: 'primary' },
+          { id: 'success', name: 'Pessoal', color: 'success' },
+          { id: 'warning', name: 'Urgente', color: 'warning' },
+          { id: 'info', name: 'Estudos', color: 'info' }
+        ];
+      }
+
+      document.getElementById('loginScreen').classList.add('d-none');
+      document.getElementById('appContainer').classList.remove('d-none');
+      
+      initApp();
+    } else {
+      alert('Usuário ou senha incorretos!');
+    }
   }
 
-  // RECURSO ADICIONAL DE SEGURANÇA: Bloqueio Automático por Inatividade (5 minutos)
+  function handleRegister(e) {
+    e.preventDefault();
+    const userIn = document.getElementById('regUser').value.trim().toLowerCase();
+    const passIn = document.getElementById('regPass').value.trim();
+    const passConfirmIn = document.getElementById('regPassConfirm').value.trim();
+    const questionIn = document.getElementById('regQuestion').value.trim();
+    const answerIn = document.getElementById('regAnswer').value.trim().toLowerCase();
+
+    if (passIn.length < 4) {
+      alert('A senha deve possuir no mínimo 4 caracteres.');
+      return;
+    }
+
+    if (passIn !== passConfirmIn) {
+      alert('A confirmação de senha não confere com a senha digitada!');
+      return;
+    }
+
+    const users = getUsersDB();
+    if (users.some(u => u.username.toLowerCase() === userIn)) {
+      alert('Este nome de usuário já está cadastrado!');
+      return;
+    }
+
+    users.push({
+      username: userIn,
+      passHash: sha256(passIn),
+      securityQuestion: questionIn,
+      securityAnswerHash: sha256(answerIn)
+    });
+
+    saveUsersDB(users);
+    alert(`Usuário "${userIn}" cadastrado com sucesso! Faça login para continuar.`);
+
+    document.getElementById('registerForm').reset();
+    
+    const loginTab = new bootstrap.Tab(document.getElementById('tab-login'));
+    loginTab.show();
+    document.getElementById('loginUser').value = userIn;
+  }
+
+  function loadSecurityQuestion() {
+    const userIn = document.getElementById('forgotUsername').value.trim().toLowerCase();
+    const users = getUsersDB();
+    const user = users.find(u => u.username.toLowerCase() === userIn);
+
+    if (!user) {
+      alert('Usuário não encontrado!');
+      return;
+    }
+
+    document.getElementById('forgotQuestionLabel').textContent = user.securityQuestion;
+    document.getElementById('forgotStep2').classList.remove('d-none');
+  }
+
+  function handleResetPassword() {
+    const userIn = document.getElementById('forgotUsername').value.trim().toLowerCase();
+    const answerIn = document.getElementById('forgotAnswer').value.trim().toLowerCase();
+    const newPassIn = document.getElementById('forgotNewPass').value.trim();
+
+    if (!answerIn || !newPassIn) {
+      alert('Preencha a resposta e a nova senha.');
+      return;
+    }
+
+    if (newPassIn.length < 4) {
+      alert('A nova senha deve ter no mínimo 4 caracteres.');
+      return;
+    }
+
+    const users = getUsersDB();
+    const user = users.find(u => u.username.toLowerCase() === userIn);
+
+    if (user && sha256(answerIn) === user.securityAnswerHash) {
+      user.passHash = sha256(newPassIn);
+      saveUsersDB(users);
+      alert('Senha redefinida com sucesso! Você já pode entrar com sua nova senha.');
+      
+      const modalEl = document.getElementById('forgotModal');
+      const modalInstance = bootstrap.Modal.getInstance(modalEl);
+      if (modalInstance) modalInstance.hide();
+      
+      document.getElementById('forgotUsername').value = '';
+      document.getElementById('forgotAnswer').value = '';
+      document.getElementById('forgotNewPass').value = '';
+      document.getElementById('forgotStep2').classList.add('d-none');
+    } else {
+      alert('Resposta de segurança incorreta!');
+    }
+  }
+
+  function handleChangePassword() {
+    const currentPass = document.getElementById('currentPass').value;
+    const newPass = document.getElementById('newPass').value;
+    const confirmNewPass = document.getElementById('confirmNewPass').value;
+
+    const users = getUsersDB();
+    const user = users.find(u => u.username === activeUser);
+
+    if (sha256(currentPass) !== user.passHash) {
+      alert('A senha atual está incorreta.');
+      return;
+    }
+    if (newPass.length < 4) {
+      alert('A nova senha deve ter no mínimo 4 caracteres.');
+      return;
+    }
+    if (newPass !== confirmNewPass) {
+      alert('A nova senha e a confirmação não coincidem.');
+      return;
+    }
+
+    user.passHash = sha256(newPass);
+    saveUsersDB(users);
+    alert('Senha alterada com sucesso!');
+
+    const settingsModalEl = document.getElementById('settingsModal');
+    const modalInstance = bootstrap.Modal.getInstance(settingsModalEl);
+    if (modalInstance) modalInstance.hide();
+
+    document.getElementById('currentPass').value = '';
+    document.getElementById('newPass').value = '';
+    document.getElementById('confirmNewPass').value = '';
+  }
+
+  function logout() {
+    document.getElementById('appContainer').classList.add('d-none');
+    document.getElementById('loginScreen').classList.remove('d-none');
+    document.getElementById('loginPass').value = '';
+    activeUser = null;
+    clearTimeout(inactivityTimer);
+    if (alarmInterval) clearInterval(alarmInterval);
+  }
+
   function resetInactivityTimer() {
     clearTimeout(inactivityTimer);
     inactivityTimer = setTimeout(() => {
-      if (document.getElementById('appContainer').style.display !== 'none') {
-        alert('Sessão encerrada por inatividade por motivos de segurança.');
+      if (!document.getElementById('appContainer').classList.contains('d-none')) {
+        alert('Sessão encerrada por inatividade.');
         logout();
       }
     }, 5 * 60 * 1000);
@@ -257,135 +883,691 @@
     window.addEventListener(evt, resetInactivityTimer);
   });
 
-  // ALTERAR SENHA COM VERIFICAÇÃO
-  async function handleChangePassword() {
-    const currentPass = document.getElementById('currentPass').value;
-    const newPass = document.getElementById('newPass').value;
-    const confirmNewPass = document.getElementById('confirmNewPass').value;
-
-    const currentHash = await hashText(currentPass);
-
-    if (currentHash !== userConfig.passHash) {
-      alert('A senha atual está incorreta.');
-      return;
+  /* ================= PERSISTÊNCIA DA AGENDA ================= */
+  function saveData() {
+    if (activeUser) {
+      localStorage.setItem(`app_agenda_data_${activeUser}`, JSON.stringify(appData));
     }
-    if (newPass.length < 6) {
-      alert('A nova senha deve ter no mínimo 6 caracteres.');
-      return;
-    }
-    if (newPass !== confirmNewPass) {
-      alert('A nova senha e a confirmação não coincidem.');
-      return;
-    }
-
-    userConfig.passHash = await hashText(newPass);
-    localStorage.setItem('app_user_config', JSON.stringify(userConfig));
-    alert('Senha alterada com sucesso!');
-    closeModal('changePassModal');
-    document.getElementById('currentPass').value = '';
-    document.getElementById('newPass').value = '';
-    document.getElementById('confirmNewPass').value = '';
   }
 
-  // ESQUECI A SENHA
-  function showForgotPassword() {
-    document.getElementById('securityQuestionText').textContent = userConfig.securityQuestion;
-    openModal('forgotModal');
+  function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('collapsed');
   }
 
-  async function handleRecovery() {
-    const answer = document.getElementById('securityAnswer').value;
-    const newPass = document.getElementById('newForgotPass').value;
-
-    const answerHash = await hashText(answer.toLowerCase().trim());
-
-    if (answerHash !== userConfig.securityAnswerHash) {
-      alert('Resposta de segurança incorreta. (Dica padrão: admin)');
-      return;
-    }
-    if (newPass.length < 6) {
-      alert('A nova senha deve ter no mínimo 6 caracteres.');
-      return;
-    }
-
-    userConfig.passHash = await hashText(newPass);
-    localStorage.setItem('app_user_config', JSON.stringify(userConfig));
-    alert('Senha redefinida com sucesso! Você já pode fazer login com a nova senha.');
-    closeModal('forgotModal');
+  function toggleTheme() {
+    const currentTheme = document.documentElement.getAttribute('data-bs-theme');
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-bs-theme', newTheme);
+    appData.theme = newTheme;
+    saveData();
+    updateThemeIcon(newTheme);
   }
 
-  // INICIALIZAÇÃO DA AGENDA
-  const notesEl = document.getElementById('quickNotes');
-  const eventsListEl = document.getElementById('eventsList');
+  function updateThemeIcon(theme) {
+    const icon = document.getElementById('themeIcon');
+    icon.className = theme === 'dark' ? 'bi bi-moon-stars-fill' : 'bi bi-sun-fill';
+  }
 
+  /* ================= FERIADOS & CALENDÁRIO ================= */
+  function getEasterDate(year) {
+    const a = year % 19, b = Math.floor(year / 100), c = year % 100;
+    const d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
+    const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+    const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7;
+    const m = Math.floor((a + 11 * h + 22 * l) / 451);
+    const month = Math.floor((h + l - 7 * m + 114) / 31);
+    const day = ((h + l - 7 * m + 114) % 31) + 1;
+    return new Date(year, month - 1, day);
+  }
+
+  function getHolidays(year) {
+    const easter = getEasterDate(year);
+    const goodFriday = new Date(easter);
+    goodFriday.setDate(easter.getDate() - 2);
+
+    const pad = n => String(n).padStart(2, '0');
+    const formatDateKey = d => `${year}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+    return [
+      { date: `${year}-01-01`, name: 'Confraternização Universal (Lei 10.607/02)' },
+      { date: `${year}-03-06`, name: 'Data Magna de Pernambuco (Lei 16.241/17)' },
+      { date: formatDateKey(goodFriday), name: 'Sexta-feira da Paixão (Lei 9.777/67)' },
+      { date: `${year}-04-21`, name: 'Tiradentes (Lei 10.607/02)' },
+      { date: `${year}-05-01`, name: 'Dia do Trabalhador (Lei 10.607/02)' },
+      { date: `${year}-06-24`, name: 'São João (Lei 9.777/67)' },
+      { date: `${year}-07-16`, name: 'Nossa Sra. do Carmo (Lei 9.777/67)' },
+      { date: `${year}-09-07`, name: 'Independência do Brasil (Lei 10.607/02)' },
+      { date: `${year}-10-12`, name: 'Nossa Senhora Aparecida (Lei 6.802/80)' },
+      { date: `${year}-11-02`, name: 'Finados (Lei 10.607/02)' },
+      { date: `${year}-11-15`, name: 'Proclamação da República (Lei 10.607/02)' },
+      { date: `${year}-11-20`, name: 'Consciência Negra (Lei 14.759/23)' },
+      { date: `${year}-12-08`, name: 'Nossa Sra. da Conceição (Lei 9.777/67)' },
+      { date: `${year}-12-25`, name: 'Natal (Lei 10.607/02)' }
+    ];
+  }
+
+  function renderHolidaysSidebar() {
+    const year = currentDateView.getFullYear();
+    const holidays = getHolidays(year);
+    const container = document.getElementById('holidaysListSidebar');
+    
+    container.innerHTML = holidays.map(h => {
+      const [y, m, d] = h.date.split('-');
+      return `
+        <li class="list-group-item px-0 bg-transparent text-muted">
+          <strong class="text-primary">${d}/${m}:</strong> ${h.name}
+        </li>
+      `;
+    }).join('');
+  }
+
+  /* ================= CATEGORIAS CUSTOMIZADAS ================= */
+  function populateCategoryOptions() {
+    const select = document.getElementById('eventCategory');
+    if (!select) return;
+    let html = (appData.categories || []).map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    html += `<option value="__ADD_NEW__" class="fw-bold text-primary">+ Nova Categoria...</option>`;
+    select.innerHTML = html;
+  }
+
+  function checkNewCategoryOption(select) {
+    if (select.value === '__ADD_NEW__') {
+      const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('newCategoryModal'));
+      modal.show();
+      select.value = appData.categories[0]?.id || 'primary';
+    }
+  }
+
+  function saveNewCategory(e) {
+    e.preventDefault();
+    const name = document.getElementById('catName').value.trim();
+    const color = document.getElementById('catColor').value;
+    if (!name) return;
+
+    const newCat = { id: 'cat_' + Date.now(), name, color };
+    appData.categories.push(newCat);
+    saveData();
+    populateCategoryOptions();
+
+    document.getElementById('eventCategory').value = newCat.id;
+    const modal = bootstrap.Modal.getInstance(document.getElementById('newCategoryModal'));
+    if (modal) modal.hide();
+    document.getElementById('catForm').reset();
+  }
+
+  function getCategoryColor(catId) {
+    const cat = (appData.categories || []).find(c => c.id === catId);
+    return cat ? cat.color : 'primary';
+  }
+
+  function getCategoryName(catId) {
+    const cat = (appData.categories || []).find(c => c.id === catId);
+    return cat ? cat.name : 'Geral';
+  }
+
+  /* ================= NOTAS EM CASCATA (<details> e <summary>) ================= */
+  function renderNotes() {
+    const container = document.getElementById('notesContainer');
+    if (!container) return;
+
+    if (!appData.notesList || appData.notesList.length === 0) {
+      container.innerHTML = '<div class="text-muted text-center py-4 small"><i class="bi bi-sticky display-6 d-block mb-2"></i>Nenhuma nota cadastrada.</div>';
+      return;
+    }
+
+    container.innerHTML = appData.notesList.map(n => `
+      <details class="mb-2 p-2 border rounded-3 bg-body shadow-sm">
+        <summary class="fw-semibold cursor-pointer text-primary">
+          <span>${n.title}</span>
+          <span class="text-muted fw-normal ms-1 small">&mdash; ${n.subject}</span>
+        </summary>
+        <div class="mt-2 pt-2 border-top text-body small">
+          <p class="mb-2" style="white-space: pre-wrap;">${n.content || 'Sem conteúdo adicional.'}</p>
+          <div class="text-end">
+            <button onclick="deleteNote(${n.id})" class="btn btn-sm btn-outline-danger border-0 py-0 fs-7">
+              <i class="bi bi-trash"></i> Excluir
+            </button>
+          </div>
+        </div>
+      </details>
+    `).join('');
+  }
+
+  function saveNewNote(e) {
+    e.preventDefault();
+    const title = document.getElementById('noteTitle').value.trim();
+    const subject = document.getElementById('noteSubject').value.trim();
+    const content = document.getElementById('noteContent').value.trim();
+
+    if (!title || !subject) return;
+
+    appData.notesList.push({ id: Date.now(), title, subject, content });
+    saveData();
+    renderNotes();
+
+    const modal = bootstrap.Modal.getInstance(document.getElementById('newNoteModal'));
+    if (modal) modal.hide();
+    document.getElementById('noteForm').reset();
+  }
+
+  function deleteNote(id) {
+    if (confirm('Deseja realmente excluir esta nota?')) {
+      appData.notesList = appData.notesList.filter(n => n.id !== id);
+      saveData();
+      renderNotes();
+    }
+  }
+
+  /* ================= INICIALIZAÇÃO DA APLICAÇÃO ================= */
   function initApp() {
-    notesEl.value = appData.notes || '';
+    if (appData.theme) {
+      document.documentElement.setAttribute('data-bs-theme', appData.theme);
+      updateThemeIcon(appData.theme);
+    }
+    
+    populateCategoryOptions();
+    renderNotes();
+    renderCalendar();
     renderEvents();
+    renderHolidaysSidebar();
+    startAlarmSystem();
     resetInactivityTimer();
   }
 
-  notesEl.addEventListener('input', () => {
-    appData.notes = notesEl.value;
-    saveData();
-  });
-
-  function saveData() {
-    localStorage.setItem('app_agenda_data', JSON.stringify(appData));
+  /* ================= MODO DE VISUALIZAÇÃO DO CALENDÁRIO ================= */
+  function setCalendarViewMode(mode) {
+    calendarViewMode = mode;
+    document.querySelectorAll('#calendarViewButtons .btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.view === mode);
+    });
+    renderCalendar();
   }
 
-  function addEvent() {
-    const title = document.getElementById('eventTitle').value;
-    const date = document.getElementById('eventDate').value;
+  function changeCalendarDate(delta) {
+    if (calendarViewMode === 'year') {
+      currentDateView.setFullYear(currentDateView.getFullYear() + delta);
+    } else if (calendarViewMode === 'month') {
+      currentDateView.setMonth(currentDateView.getMonth() + delta);
+    } else if (calendarViewMode === 'week') {
+      currentDateView.setDate(currentDateView.getDate() + (delta * 7));
+    } else if (calendarViewMode === 'day') {
+      currentDateView.setDate(currentDateView.getDate() + delta);
+    }
+    renderCalendar();
+    renderHolidaysSidebar();
+  }
 
-    if (!title || !date) {
-      alert('Por favor, preencha o título e a data.');
+  function currentDateViewAction() {
+    currentDateView = new Date();
+    renderCalendar();
+    renderHolidaysSidebar();
+  }
+
+  /* ================= SELEÇÃO E AÇÕES DE DIA DO CALENDÁRIO ================= */
+  function selectCalendarDay(dateStr, colElement) {
+    selectedDateStr = dateStr;
+    document.querySelectorAll('.calendar-day').forEach(el => el.classList.remove('selected-day'));
+    if (colElement) {
+      colElement.classList.add('selected-day');
+    }
+  }
+
+  function handleNewEventClick() {
+    if (!selectedDateStr) {
+      alert('Selecione um dia para agendar');
       return;
     }
+    openNewEventModalWithDate(`${selectedDateStr}T09:00`);
+  }
 
-    appData.events.push({ id: Date.now(), title, date });
+  function renderCalendar() {
+    const grid = document.getElementById('calendarGrid');
+    const headerDays = document.getElementById('calendarHeaderDays');
+    grid.innerHTML = '';
+
+    const year = currentDateView.getFullYear();
+    const month = currentDateView.getMonth();
+    const pad = n => String(n).padStart(2, '0');
+    const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+
+    // RENDERIZAÇÃO MÊS
+    if (calendarViewMode === 'month') {
+      headerDays.classList.remove('d-none');
+      grid.className = 'calendar-grid-month';
+      document.getElementById('calendarMonthYear').textContent = `${monthNames[month]} ${year}`;
+
+      const firstDay = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const today = new Date();
+      const holidays = getHolidays(year);
+
+      for (let i = 0; i < firstDay; i++) {
+        const emptyCol = document.createElement('div');
+        emptyCol.className = 'calendar-day bg-body-tertiary opacity-25 p-1';
+        grid.appendChild(emptyCol);
+      }
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const col = document.createElement('div');
+        col.className = 'calendar-day p-1 position-relative';
+        const dateStr = `${year}-${pad(month + 1)}-${pad(day)}`;
+
+        if (today.getFullYear() === year && today.getMonth() === month && today.getDate() === day) {
+          col.classList.add('bg-today');
+        }
+
+        if (selectedDateStr === dateStr) {
+          col.classList.add('selected-day');
+        }
+
+        let htmlEvents = '';
+        const holiday = holidays.find(h => h.date === dateStr);
+        if (holiday) {
+          htmlEvents += `<span class="badge bg-danger-subtle text-danger event-badge" title="${holiday.name}">🎉 ${holiday.name}</span>`;
+        }
+
+        const dayEvents = appData.events.filter(e => e.date.startsWith(dateStr));
+        dayEvents.forEach(e => {
+          htmlEvents += `<span class="badge bg-${getCategoryColor(e.category)} event-badge" title="${e.title}">${e.title}</span>`;
+        });
+
+        col.innerHTML = `
+          <div class="d-flex justify-content-between align-items-center mb-1 w-100">
+            <span class="fw-bold small">${day}</span>
+            <button type="button" class="btn btn-sm btn-primary border-0 py-0 px-1 lh-1 day-plus-btn d-none" style="font-size: 0.70rem; border-radius: 4px;" onclick="event.stopPropagation(); showDayDetails('${dateStr}')" title="Exibir todo conteúdo do dia">
+              <i class="bi bi-plus-lg"></i>
+            </button>
+          </div>
+          <div class="calendar-day-events">${htmlEvents}</div>
+        `;
+
+        col.onclick = () => selectCalendarDay(dateStr, col);
+        col.ondblclick = () => showDayDetails(dateStr);
+        grid.appendChild(col);
+      }
+    } 
+
+    // RENDERIZAÇÃO SEMANA (MANTÉM FORMATAÇÃO IDÊNTICA AO MÊS)
+    else if (calendarViewMode === 'week') {
+      headerDays.classList.remove('d-none');
+      grid.className = 'calendar-grid-week';
+      
+      const startOfWeek = new Date(currentDateView);
+      startOfWeek.setDate(currentDateView.getDate() - currentDateView.getDay());
+
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6);
+
+      document.getElementById('calendarMonthYear').textContent = `Semana de ${startOfWeek.getDate()}/${startOfWeek.getMonth()+1} a ${endOfWeek.getDate()}/${endOfWeek.getMonth()+1}/${endOfWeek.getFullYear()}`;
+
+      const holidays = getHolidays(year);
+      const today = new Date();
+
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(startOfWeek);
+        d.setDate(startOfWeek.getDate() + i);
+        const dYear = d.getFullYear();
+        const dMonth = d.getMonth();
+        const dDay = d.getDate();
+        const dateStr = `${dYear}-${pad(dMonth + 1)}-${pad(dDay)}`;
+
+        const col = document.createElement('div');
+        col.className = 'calendar-day p-1 position-relative';
+        
+        if (today.getFullYear() === dYear && today.getMonth() === dMonth && today.getDate() === dDay) {
+          col.classList.add('bg-today');
+        }
+
+        if (selectedDateStr === dateStr) {
+          col.classList.add('selected-day');
+        }
+
+        let htmlEvents = '';
+        const holiday = holidays.find(h => h.date === dateStr);
+        if (holiday) {
+          htmlEvents += `<span class="badge bg-danger-subtle text-danger event-badge" title="${holiday.name}">🎉 ${holiday.name}</span>`;
+        }
+
+        const dayEvents = appData.events.filter(e => e.date.startsWith(dateStr));
+        dayEvents.forEach(e => {
+          htmlEvents += `<span class="badge bg-${getCategoryColor(e.category)} event-badge" title="${e.title}">${e.title}</span>`;
+        });
+
+        col.innerHTML = `
+          <div class="d-flex justify-content-between align-items-center mb-1 w-100">
+            <span class="fw-bold small">${dDay}/${dMonth+1}</span>
+            <button type="button" class="btn btn-sm btn-primary border-0 py-0 px-1 lh-1 day-plus-btn d-none" style="font-size: 0.70rem; border-radius: 4px;" onclick="event.stopPropagation(); showDayDetails('${dateStr}')" title="Exibir todo conteúdo do dia">
+              <i class="bi bi-plus-lg"></i>
+            </button>
+          </div>
+          <div class="calendar-day-events">${htmlEvents}</div>
+        `;
+
+        col.onclick = () => selectCalendarDay(dateStr, col);
+        col.ondblclick = () => showDayDetails(dateStr);
+        grid.appendChild(col);
+      }
+    }
+
+    // RENDERIZAÇÃO DIA (EXPANDE A CÉLULA TOTALMENTE COM TODOS OS EVENTOS)
+    else if (calendarViewMode === 'day') {
+      headerDays.classList.add('d-none');
+      grid.className = 'calendar-grid-day';
+
+      const dYear = currentDateView.getFullYear();
+      const dMonth = currentDateView.getMonth();
+      const dDay = currentDateView.getDate();
+      const dateStr = `${dYear}-${pad(dMonth + 1)}-${pad(dDay)}`;
+
+      document.getElementById('calendarMonthYear').textContent = `${dDay} de ${monthNames[dMonth]} de ${dYear}`;
+
+      const holidays = getHolidays(dYear);
+      const holiday = holidays.find(h => h.date === dateStr);
+      const dayEvents = appData.events.filter(e => e.date.startsWith(dateStr));
+
+      let content = `
+        <div class="card border-1 p-3 calendar-day-expanded">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="fw-bold text-primary mb-0">Agenda do Dia (${dDay}/${dMonth+1}/${dYear})</h6>
+            <button class="btn btn-sm btn-primary" onclick="selectCalendarDay('${dateStr}'); openNewEventModalWithDate('${dateStr}T09:00')">
+              <i class="bi bi-plus-lg"></i> Novo Compromisso
+            </button>
+          </div>`;
+
+      if (holiday) {
+        content += `<div class="alert alert-danger py-2 mb-3"><i class="bi bi-flag-fill me-1"></i> Feriado: ${holiday.name}</div>`;
+      }
+
+      if (dayEvents.length > 0) {
+        content += `<ul class="list-group">`;
+        dayEvents.forEach(e => {
+          const timeStr = new Date(e.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+          content += `
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              <div>
+                <span class="badge bg-${getCategoryColor(e.category)} me-2">${getCategoryName(e.category)}</span>
+                <strong>${e.title}</strong>
+                <span class="text-muted ms-2 small"><i class="bi bi-clock me-1"></i>${timeStr}</span>
+                ${e.desc ? `<p class="small text-muted mb-0 mt-1">${e.desc}</p>` : ''}
+              </div>
+              <button onclick="deleteEvent(${e.id})" class="btn btn-sm btn-outline-danger border-0"><i class="bi bi-trash"></i></button>
+            </li>`;
+        });
+        content += `</ul>`;
+      } else {
+        content += `<p class="text-muted text-center py-4">Nenhum evento agendado para este dia.</p>`;
+      }
+
+      content += `</div>`;
+      grid.innerHTML = content;
+      selectedDateStr = dateStr;
+    }
+
+    // RENDERIZAÇÃO ANO
+    else if (calendarViewMode === 'year') {
+      headerDays.classList.add('d-none');
+      grid.className = 'calendar-grid-year';
+      document.getElementById('calendarMonthYear').textContent = `Ano de ${year}`;
+
+      for (let m = 0; m < 12; m++) {
+        const monthCard = document.createElement('div');
+        monthCard.className = 'card border p-2 text-center cursor-pointer shadow-sm';
+        
+        const countEvents = appData.events.filter(e => {
+          const d = new Date(e.date);
+          return d.getFullYear() === year && d.getMonth() === m;
+        }).length;
+
+        monthCard.innerHTML = `
+          <h6 class="fw-bold text-primary mb-1">${monthNames[m]}</h6>
+          <span class="badge bg-secondary-subtle text-secondary small mb-2">${countEvents} evento(s)</span>
+          <button class="btn btn-sm btn-outline-primary py-0 fs-7" onclick="event.stopPropagation(); currentDateView = new Date(${year}, ${m}, 1); setCalendarViewMode('month');">
+            Ver Mês
+          </button>
+        `;
+        grid.appendChild(monthCard);
+      }
+    }
+
+    // EXIBIR BOTÃO + NO CANTO SUPERIOR DIREITO CASO HOUVER OVERFLOW (MÊS E SEMANA)
+    setTimeout(() => {
+      document.querySelectorAll('.calendar-day').forEach(col => {
+        const eventsContainer = col.querySelector('.calendar-day-events');
+        const plusBtn = col.querySelector('.day-plus-btn');
+        if (eventsContainer && plusBtn) {
+          if (eventsContainer.scrollHeight > eventsContainer.clientHeight) {
+            plusBtn.classList.remove('d-none');
+          }
+        }
+      });
+    }, 0);
+  }
+
+  function openNewEventModalWithDate(dateTimeStr) {
+    document.getElementById('eventDate').value = dateTimeStr;
+    const newEventModalEl = document.getElementById('newEventModal');
+    const modalInstance = bootstrap.Modal.getOrCreateInstance(newEventModalEl);
+    modalInstance.show();
+  }
+
+  function confirmDateSelection() {
+    const dateVal = document.getElementById('eventDate').value;
+    const feedback = document.getElementById('dateConfirmFeedback');
+    if (dateVal) {
+      feedback.classList.remove('d-none');
+      setTimeout(() => feedback.classList.add('d-none'), 2500);
+    } else {
+      alert('Por favor, selecione a data e hora primeiro.');
+    }
+  }
+
+  /* EXIBIR DETALHES COMPLETOS DO DIA EM UM POPUP MODAL (COM FECHAMENTO AO CLICAR FORA) */
+  function showDayDetails(dateStr) {
+    const [year, month, day] = dateStr.split('-');
+    const formattedDate = `${day}/${month}/${year}`;
+    
+    document.getElementById('dayDetailsTitle').innerHTML = `<i class="bi bi-calendar-event me-2"></i> Eventos de ${formattedDate}`;
+    
+    const body = document.getElementById('dayDetailsBody');
+    const holidays = getHolidays(parseInt(year));
+    const holiday = holidays.find(h => h.date === dateStr);
+    const dayEvents = (appData.events || []).filter(e => e.date.startsWith(dateStr));
+
+    let content = '';
+
+    if (holiday) {
+      content += `
+        <div class="alert alert-danger py-2 mb-3">
+          <strong class="d-block"><i class="bi bi-flag-fill me-1"></i> Feriado Oficial:</strong>
+          ${holiday.name}
+        </div>`;
+    }
+
+    if (dayEvents.length > 0) {
+      content += '<h6 class="fw-bold mb-2 text-primary">Compromissos Agendados:</h6><div class="list-group list-group-flush border-top border-bottom mb-2">';
+      dayEvents.forEach(e => {
+        const dateObj = new Date(e.date);
+        const timeStr = dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        content += `
+          <div class="list-group-item px-0 py-2">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <span class="badge bg-${getCategoryColor(e.category)} fs-6">${e.title}</span>
+              <span class="small text-muted"><i class="bi bi-clock me-1"></i>${timeStr}</span>
+            </div>
+            ${e.desc ? `<p class="small text-secondary mb-0">${e.desc}</p>` : ''}
+          </div>`;
+      });
+      content += '</div>';
+    }
+
+    if (!holiday && dayEvents.length === 0) {
+      content = '<p class="text-muted text-center my-4"><i class="bi bi-calendar-x display-6 d-block mb-2"></i>Nenhum evento ou feriado registrado para esta data.</p>';
+    }
+
+    body.innerHTML = content;
+
+    const modalEl = document.getElementById('dayDetailsModal');
+    const modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modalInstance.show();
+  }
+
+  function saveEvent(e) {
+    e.preventDefault();
+    const title = document.getElementById('eventTitle').value;
+    const date = document.getElementById('eventDate').value;
+    const category = document.getElementById('eventCategory').value;
+    const alarm = document.getElementById('eventAlarm').checked;
+    const desc = document.getElementById('eventDesc').value;
+
+    if (!title || !date) return;
+
+    appData.events.push({
+      id: Date.now(),
+      title,
+      date,
+      category,
+      alarm,
+      desc,
+      notified: false
+    });
+
     appData.events.sort((a, b) => new Date(a.date) - new Date(b.date));
     
     saveData();
     renderEvents();
+    renderCalendar();
 
-    document.getElementById('eventTitle').value = '';
-    document.getElementById('eventDate').value = '';
+    document.getElementById('eventForm').reset();
+    
+    const newEventModalEl = document.getElementById('newEventModal');
+    const modalInstance = bootstrap.Modal.getInstance(newEventModalEl);
+    if (modalInstance) modalInstance.hide();
   }
 
   function deleteEvent(id) {
-    appData.events = appData.events.filter(e => e.id !== id);
+    if (confirm('Deseja realmente excluir este compromisso?')) {
+      appData.events = appData.events.filter(e => e.id !== id);
+      saveData();
+      renderEvents();
+      renderCalendar();
+    }
+  }
+
+  /* ALTERNAR VISUALIZAÇÃO DE EVENTOS (CARDS / LISTA RESUMIDA) */
+  function toggleEventsView() {
+    appData.eventsViewMode = appData.eventsViewMode === 'cards' ? 'summary' : 'cards';
     saveData();
     renderEvents();
   }
 
   function renderEvents() {
-    if (appData.events.length === 0) {
-      eventsListEl.innerHTML = '<p style="color: #6b7280;">Nenhum compromisso cadastrado.</p>';
+    const listEl = document.getElementById('eventsList');
+    const toggleBtnLabel = document.getElementById('viewModeLabel');
+    const toggleBtnIcon = document.getElementById('viewModeIcon');
+
+    if (!appData.events || appData.events.length === 0) {
+      listEl.innerHTML = '<div class="col-12 text-muted text-center py-4">Nenhum compromisso agendado.</div>';
       return;
     }
 
-    eventsListEl.innerHTML = appData.events.map(e => {
-      const formattedDate = new Date(e.date).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
-      return `
-        <div class="list-item">
-          <div>
-            <strong>${e.title}</strong><br>
-            <small style="color: #6b7280;">${formattedDate}</small>
+    if (appData.eventsViewMode === 'summary') {
+      if (toggleBtnLabel) toggleBtnLabel.textContent = 'Blocos';
+      if (toggleBtnIcon) toggleBtnIcon.className = 'bi bi-grid-fill me-1';
+
+      listEl.innerHTML = `
+        <div class="col-12">
+          <div class="list-group shadow-sm border rounded-3">
+            ${appData.events.map(e => `
+              <div class="list-group-item d-flex justify-content-between align-items-center py-2">
+                <div>
+                  <span class="badge bg-${getCategoryColor(e.category)} me-2">${getCategoryName(e.category)}</span>
+                  <strong>${e.title}</strong>
+                  <span class="text-muted ms-2 small"><i class="bi bi-clock me-1"></i>${new Date(e.date).toLocaleString('pt-BR')}</span>
+                </div>
+                <button onclick="deleteEvent(${e.id})" class="btn btn-sm btn-outline-danger border-0"><i class="bi bi-trash"></i></button>
+              </div>
+            `).join('')}
           </div>
-          <button onclick="deleteEvent(${e.id})" style="width: auto; background: #ef4444; padding: 4px 8px;">Excluir</button>
         </div>
       `;
-    }).join('');
+    } else {
+      if (toggleBtnLabel) toggleBtnLabel.textContent = 'Lista Resumida';
+      if (toggleBtnIcon) toggleBtnIcon.className = 'bi bi-list-task me-1';
+
+      listEl.innerHTML = appData.events.map(e => {
+        const dateObj = new Date(e.date);
+        const formattedDate = dateObj.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+
+        return `
+          <div class="col-md-6 col-lg-4">
+            <div class="card border-start border-4 border-${getCategoryColor(e.category)} shadow-sm h-100">
+              <div class="card-body p-3 d-flex flex-column justify-content-between">
+                <div>
+                  <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h6 class="fw-bold mb-0 text-truncate">${e.title}</h6>
+                    ${e.alarm ? '<i class="bi bi-bell-fill text-warning" title="Alarme Ativo"></i>' : ''}
+                  </div>
+                  <p class="small text-muted mb-2"><i class="bi bi-clock me-1"></i>${formattedDate}</p>
+                  ${e.desc ? `<p class="small text-secondary mb-2">${e.desc}</p>` : ''}
+                </div>
+                <div class="text-end mt-2">
+                  <button onclick="deleteEvent(${e.id})" class="btn btn-outline-danger btn-sm border-0">
+                    <i class="bi bi-trash"></i> Excluir
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+  }
+
+  function startAlarmSystem() {
+    if (alarmInterval) clearInterval(alarmInterval);
+    
+    alarmInterval = setInterval(() => {
+      const now = new Date();
+
+      if (appData.events) {
+        appData.events.forEach(e => {
+          if (e.alarm && !e.notified) {
+            const eventDate = new Date(e.date);
+            if (now >= eventDate) {
+              playAlarmSound();
+              alert(`⏰ ALARME / LEMBRETE:\n\nCompromisso: ${e.title}\nData: ${eventDate.toLocaleString('pt-BR')}`);
+              e.notified = true;
+              saveData();
+            }
+          }
+        });
+      }
+    }, 10000);
+  }
+
+  function playAlarmSound() {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      gain.gain.setValueAtTime(0.5, ctx.currentTime);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 1.5);
+    } catch(err) {}
   }
 
   function updateNetworkStatus() {
     const statusEl = document.getElementById('netStatus');
     if (navigator.onLine) {
       statusEl.textContent = 'On-line';
-      statusEl.className = 'badge online';
+      statusEl.className = 'badge rounded-pill bg-success';
     } else {
-      statusEl.textContent = 'Off-line (Modo Local)';
-      statusEl.className = 'badge offline';
+      statusEl.textContent = 'Off-line';
+      statusEl.className = 'badge rounded-pill bg-danger';
     }
   }
 
@@ -393,31 +1575,63 @@
   window.addEventListener('offline', updateNetworkStatus);
   updateNetworkStatus();
 
-  function exportData() {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appData));
+  /* ================= BACKUP COMPLETO DO SISTEMA (USUÁRIOS + AGENDAS) ================= */
+  function exportFullSystemBackup() {
+    const users = getUsersDB();
+    const allAgendas = {};
+
+    users.forEach(u => {
+      const uData = localStorage.getItem(`app_agenda_data_${u.username}`);
+      if (uData) {
+        allAgendas[u.username] = JSON.parse(uData);
+      }
+    });
+
+    const fullBackup = {
+      systemVersion: "2.2",
+      exportDate: new Date().toISOString(),
+      users: users,
+      agendas: allAgendas
+    };
+
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(fullBackup, null, 2));
     const downloadAnchor = document.createElement('a');
     downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", `agenda_backup_${new Date().toISOString().slice(0,10)}.json`);
+    downloadAnchor.setAttribute("download", `sistema_agenda_backup_${new Date().toISOString().slice(0,10)}.json`);
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
   }
 
-  function importData(event) {
+  function importFullSystemBackup(event) {
     const fileReader = new FileReader();
     fileReader.onload = function(e) {
       try {
-        appData = JSON.parse(e.target.result);
-        saveData();
-        notesEl.value = appData.notes || '';
-        renderEvents();
-        alert('Dados importados com sucesso!');
+        const backupObj = JSON.parse(e.target.result);
+
+        if (!backupObj.users || !backupObj.agendas) {
+          alert('Arquivo de backup inválido ou incompatível.');
+          return;
+        }
+
+        if (confirm("Importar este backup substituirá a base atual de usuários e agendas. Deseja continuar?")) {
+          saveUsersDB(backupObj.users);
+
+          Object.keys(backupObj.agendas).forEach(username => {
+            localStorage.setItem(`app_agenda_data_${username}`, JSON.stringify(backupObj.agendas[username]));
+          });
+
+          alert('Backup do sistema restaurado com sucesso! A página será recarregada.');
+          location.reload();
+        }
       } catch (err) {
-        alert('Erro ao importar arquivo JSON inválido.');
+        alert('Erro ao processar arquivo JSON: ' + err.message);
       }
     };
     fileReader.readAsText(event.target.files[0]);
   }
+
+  getUsersDB();
 </script>
 
 </body>
